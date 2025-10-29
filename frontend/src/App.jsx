@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import Signup from "./pages/SignUpPage";
-import SpectreeChatPage from "./pages/ChatPage";
+import ChatPage from "./pages/ChatPage";
 import { userAuthStore } from "./store/useAuthstore";
 import { useEffect } from "react";
 import PageLoader from "./Components/PageLoader";
@@ -28,7 +28,7 @@ export default function App() {
 
       <Routes>
         {/* Home route */}
-        <Route path="/" element={authuser ? <LoginPage /> : <Navigate to={"/login"} />} />
+        <Route path="/" element={authuser ? <ChatPage /> : <Navigate to={"/login"} />} />
         <Route path="/signup" element={!authuser ? <Signup /> : <Navigate to={"/"} />} />
         <Route path="/login" element={!authuser ? <LoginPage /> : <Navigate to={"/"} />} />
       </Routes>

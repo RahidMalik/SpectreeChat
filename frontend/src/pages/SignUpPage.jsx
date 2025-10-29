@@ -4,7 +4,7 @@ import { BorderAnimatedContainer } from "../Components/BorderAnimatedContainer";
 import { MessageCircleIcon, LockIcon, MailIcon, UserIcon, LoaderIcon } from "lucide-react";
 import { Link } from "react-router";
 function SignUpPage() {
-    const [formData, setFormData] = useState({ fullName: "", email: "", password: "" });
+    const [formData, setFormData] = useState({ fullname: "", email: "", password: "" });
     const { signup, isSigningUp } = userAuthStore();
 
     const handleSubmit = (e) => {
@@ -37,8 +37,8 @@ function SignUpPage() {
 
                                             <input
                                                 type="text"
-                                                value={formData.fullName}
-                                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                                value={formData.fullname}
+                                                onChange={(e) => setFormData({ ...formData, fullname: e.target.value })}
                                                 className="input"
                                                 placeholder="Enter Username"
                                             />
