@@ -5,6 +5,7 @@ import ProfileHeader from '../Components/ProfileHeader'
 import ActiveTabSwtich from '../Components/ActiveTabSwtich'
 import ChatList from '../Components/ChatList'
 import ContactList from '../Components/ContactList'
+import NoConversationPlaceholder from "../Components/NoConversationPlaceholder"
 
 function ChatPage() {
     const { activeTab, selecteduser } = useAuthChat();
