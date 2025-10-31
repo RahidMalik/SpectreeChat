@@ -3,21 +3,21 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 
 export const useAuthChat = create((set, get) => ({
+
     allContacts: [],
-    chat: [],
+    chats: [],
     messages: [],
     activetab: "chats",
-    SelectedUser: null,
-    isUserLoading: false,
+    selectedUser: null,
+    isUsersLoading: false,
     isMessageLoading: false,
-    isSoundEnable: localStorage.getItem("isSoundEnabled") === true,
-
-
+    isSoundEnable: localStorage.getItem("isSoundEnabled") === "true",
 
 
     toggleSound: () => {
-        localStorage.getItem("isSoundEnabled", !get().isSoundEnable)
-        set({ isSoundEnable: !get().isSoundEnable })
+        const newValue = !get().isSoundEnable;
+        localStorage.setItem("isSoundEnabled", newValue);
+        set({ isSoundEnable: newValue });
     },
 
 
@@ -38,7 +38,7 @@ export const useAuthChat = create((set, get) => ({
         }
     },
 
-    getMyChatPartner: async () => {
+    getMyChatPartners: async () => {
         set({ isUsersLoading: true });
         try {
             const res = await axiosInstance.get("/messages/chats");
