@@ -5,15 +5,15 @@ import NoChatsFound from './NoChatsFound';
 import UsersLoadingSkeleton from './UsersLoadingSkeleton';
 
 function ChatsList() {
-    const { getMyChatPartners, chats, isUsersLoading, setSelectedUser } = useAuthChat();
+    const { getChatPartners, chats, isUsersLoading, setSelectedUser } = useAuthChat();
     const { onlineUsers } = userAuthStore();
 
     useEffect(() => {
-        getMyChatPartners();
-    }, [getMyChatPartners]);
+        getChatPartners();
+    }, [getChatPartners]);
 
     // Optional: Debug
-    console.log("Loading:", isUsersLoading, "Chats:", chats.length);
+
 
     if (isUsersLoading) return <UsersLoadingSkeleton />;
     if (chats.length === 0) return <NoChatsFound />;
@@ -30,17 +30,18 @@ function ChatsList() {
                         <div className={`avatar ${onlineUsers.includes(chat._id) ? "online" : "offline"}`}>
                             <div className="size-12 rounded-full overflow-hidden">
                                 <img
-                                    src={chat.profilePic || "/avatar.png"}
-                                    alt={chat.fullName}
+                                    src={chat.profilepic || "/avatar.png"}
+                                    alt={chat.fullname}
                                     className="w-full h-full object-cover"
                                 />
                             </div>
                         </div>
                         <h4 className="text-slate-200 font-medium truncate">
-                            {chat.fullName}
+                            {chat.fullname}
                         </h4>
                     </div>
                 </div>
+
             ))}
         </>
     );
