@@ -12,24 +12,33 @@ export default function ChatContainer() {
         selecteduser,
         getMessagesByUserId,
         messages,
-        isMessagesLoading,
+        subscribeToMessages,
+        unsubscribeFromMessages,
+        isMessageLoading,
     } = useAuthChat();
 
     const { authuser } = userAuthStore();
     const messageEndRef = useRef(null);
 
+    //  Load messages & subscribe to socket updates
     useEffect(() => {
         if (selecteduser?._id) {
             getMessagesByUserId(selecteduser._id);
+            subscribeToMessages();
         }
-    }, [selecteduser?._id, getMessagesByUserId]);
 
+        return () => unsubscribeFromMessages();
+    }, [selecteduser?._id, getMessagesByUserId, subscribeToMessages, unsubscribeFromMessages]);
+
+
+    // Auto-scroll to latest message
     useEffect(() => {
         if (messageEndRef.current && messages.length > 0) {
             messageEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
     }, [messages]);
 
+    // Format time for messages
     const formatMessageTime = (timestamp) => {
         if (!timestamp) return "";
         try {
@@ -40,26 +49,28 @@ export default function ChatContainer() {
                 minute: "2-digit",
             });
         } catch (error) {
-            return "", error;
+            console.error("Time format error:", error);
+            return "";
         }
     };
 
     if (!selecteduser) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-900">
+            <div className="flex-1 flex items-center justify-center">
                 <p className="text-slate-400 text-lg">Select a contact to start chatting</p>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 flex flex-col bg-slate-900">
+        <>
+            {/* Original ChatHeader */}
             <ChatHeader />
 
             {/* Messages Area */}
-            <div className="flex-1 px-6 overflow-y-auto py-8">
-                {messages.length > 0 && !isMessagesLoading ? (
-                    <div className="max-w-3xl mx-auto space-y-3">
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-8">
+                {messages.length > 0 && !isMessageLoading ? (
+                    <div className="space-y-3">
                         {messages.map((msg) => {
                             const isSent = msg.senderId === authuser._id;
 
@@ -69,7 +80,7 @@ export default function ChatContainer() {
                                     className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
                                 >
                                     <div
-                                        className={`max-w-xs rounded-lg shadow ${isSent
+                                        className={`max-w-[85%] md:max-w-xs rounded-lg shadow ${isSent
                                             ? 'bg-cyan-600 text-white'
                                             : 'bg-slate-800 text-slate-200'
                                             }`}
@@ -98,7 +109,7 @@ export default function ChatContainer() {
                         })}
                         <div ref={messageEndRef} />
                     </div>
-                ) : isMessagesLoading ? (
+                ) : isMessageLoading ? (
                     <MessagesLoadingSkeleton />
                 ) : (
                     <NoChatHistoryPlaceholder name={selecteduser.fullname} />
@@ -106,6 +117,6 @@ export default function ChatContainer() {
             </div>
 
             <MessageInput />
-        </div>
+        </>
     );
 }

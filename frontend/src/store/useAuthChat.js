@@ -78,7 +78,7 @@ export const useAuthChat = create((set, get) => ({
             senderId: authuser._id,
             receiverId: selecteduser._id,
             text: messageData.text || "",
-            image: messageData.images || "", // Frontend se "images" field aayegi
+            image: messageData.image || "", // Frontend se "images" field aayegi
             createdAt: new Date().toISOString(),
             isOptimistic: true,
         };
@@ -105,6 +105,41 @@ export const useAuthChat = create((set, get) => ({
             set({ messages: messages.filter(msg => msg._id !== tempId) });
             toast.error(error.response?.data?.message || "Failed to send message");
         }
+    },
+    subscribeToMessages: () => {
+        const { selecteduser, isSoundEnable } = get();
+        const socket = userAuthStore.getState().socket;
+
+        // agar selected user nahi to kuch mat karo
+        if (!selecteduser || !socket) return;
+
+        const handleNewMessage = (newMessage) => {
+            // sirf current chat ke messages hi add karo
+            if (newMessage.senderId !== selecteduser._id) return;
+
+            set((state) => ({
+                messages: [...state.messages, newMessage],
+            }));
+
+            if (isSoundEnable) {
+                const sound = new Audio("/sounds/notification.mp3");
+                sound.currentTime = 0;
+                sound.play().catch((e) => console.log("Audio play failed:", e));
+            }
+        };
+
+        // event attach
+        socket.on("newMessage", handleNewMessage);
+
+        // return cleanup (useEffect ke cleanup jaisa)
+        return () => {
+            socket.off("newMessage", handleNewMessage);
+        };
+    },
+
+    unsubscribeFromMessages: () => {
+        const socket = userAuthStore.getState().socket;
+        socket.off("newMessage");
     },
 
 
