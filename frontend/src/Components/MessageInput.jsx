@@ -9,14 +9,18 @@ function MessageInput() {
     const [text, setText] = useState("");
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
-    const { sendMessage, isSoundEnabled } = useAuthChat();
+    const { sendMessage, isSoundEnabled, selecteduser } = useAuthChat();
 
     const handleSendMessage = (e) => {
         e.preventDefault();
         if (!text.trim() && !imagePreview) return;
         if (isSoundEnabled) playRandomKeyStrokeSound();
 
-        sendMessage({ text: text.trim(), image: imagePreview });
+        sendMessage({
+            text: text.trim() || "",
+            image: imagePreview,
+            receiverId: selecteduser?._id,
+        });
         setText("");
         setImagePreview(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -82,8 +86,8 @@ function MessageInput() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className={`p-2 sm:px-4 rounded-lg transition-colors ${imagePreview
-                            ? "text-cyan-500 bg-slate-800/60"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                        ? "text-cyan-500 bg-slate-800/60"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
                         }`}
                 >
                     <ImageIcon className="w-5 h-5" />
