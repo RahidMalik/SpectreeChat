@@ -3,10 +3,10 @@ import { useAuthChat } from "../store/useAuthChat";
 import { useEffect } from "react";
 import { userAuthStore } from "../store/useAuthstore";
 
-function ChatHeader() {
+function ChatHeader({ typing, name }) {
     const { selecteduser, setSelectedUser } = useAuthChat();
     const { onlineUsers } = userAuthStore();
-    const isOnline = onlineUsers.includes(selecteduser._id);
+    const isOnline = onlineUsers.includes(selecteduser?._id);
 
     useEffect(() => {
         const handleEscKey = (event) => {
@@ -31,8 +31,8 @@ function ChatHeader() {
                 <div className={`avatar ${isOnline ? "online" : "offline"}`}>
                     <div className="w-10 h-10 rounded-full overflow-hidden">
                         <img
-                            src={selecteduser.profilepic || "/avatar.png"}
-                            alt={selecteduser.fullname}
+                            src={selecteduser?.profilepic || "/avatar.png"}
+                            alt={selecteduser?.fullname || "User"}
                             className="w-full h-full object-cover"
                         />
                     </div>
@@ -40,9 +40,16 @@ function ChatHeader() {
 
                 <div className="flex flex-col min-w-0">
                     <h4 className="text-slate-100 font-medium text-sm sm:text-base truncate">
-                        {selecteduser.fullname}
+                        {name || selecteduser?.fullname}
                     </h4>
-                    <p className="text-xs text-slate-400">{isOnline ? "Online" : "Offline"}</p>
+                    {/* ✅ Typing status or online/offline */}
+                    <p className="text-xs text-slate-400 transition-all">
+                        {typing
+                            ? "Typing..."
+                            : isOnline
+                                ? "Online"
+                                : "Offline"}
+                    </p>
                 </div>
             </div>
 
@@ -56,4 +63,5 @@ function ChatHeader() {
         </div>
     );
 }
+
 export default ChatHeader;

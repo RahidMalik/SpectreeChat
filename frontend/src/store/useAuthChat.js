@@ -3,35 +3,28 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { userAuthStore } from "./useAuthstore";
 
-/**
- * useAuthChat: messages are owned here (messages: []).
- * This store will read socket from userAuthStore.getState().socket
- * and register message-related handlers (newMessage, messageSeen).
- */
-
 export const useAuthChat = create((set, get) => ({
     allContacts: [],
     chats: [],
-    messages: [], // default
+    messages: [],
     activetab: "chats",
     selecteduser: null,
     isUsersLoading: false,
     isMessageLoading: false,
     isSoundEnable: false,
+    isTyping: false,
+    typingUserId: null,
 
-    // safe setter for messages: accepts update function
-    setMessages: (updateFn) =>
+    setMessages: (updater) =>
         set((state) => ({
-            messages: updateFn(state.messages || []),
+            messages: typeof updater === "function" ? updater(state.messages) : updater,
         })),
 
-    toggleSound: () => {
-        set({ isSoundEnable: !get().isSoundEnable });
-    },
-
+    toggleSound: () => set({ isSoundEnable: !get().isSoundEnable }),
     setActiveTab: (tab) => set({ activetab: tab }),
     setSelectedUser: (selecteduser) => set({ selecteduser }),
 
+    // ✅ Get all contacts
     getAllContacts: async () => {
         set({ isUsersLoading: true });
         try {
@@ -44,6 +37,7 @@ export const useAuthChat = create((set, get) => ({
         }
     },
 
+    // ✅ Get chat partners
     getChatPartners: async () => {
         set({ isUsersLoading: true });
         try {
@@ -56,15 +50,12 @@ export const useAuthChat = create((set, get) => ({
         }
     },
 
+    // ✅ Get messages
     getMessagesByUserId: async (userId) => {
         set({ isMessageLoading: true });
         try {
             const res = await axiosInstance.get(`/messages/${userId}`);
-            // ensure messages always an array and include seen flag default
-            const msgs = Array.isArray(res.data)
-                ? res.data.map((m) => ({ ...m, seen: !!m.seen }))
-                : [];
-            set({ messages: msgs });
+            set({ messages: res.data });
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to load messages");
         } finally {
@@ -72,9 +63,10 @@ export const useAuthChat = create((set, get) => ({
         }
     },
 
+    // ✅ Send message (with optimistic UI)
     sendMessage: async (messageData) => {
-        const { selecteduser } = get();
-        const { authuser, socket } = userAuthStore.getState();
+        const { selecteduser, messages } = get();
+        const { authuser } = userAuthStore.getState();
 
         if (!selecteduser) {
             toast.error("No user selected");
@@ -82,7 +74,6 @@ export const useAuthChat = create((set, get) => ({
         }
 
         const tempId = `temp-${Date.now()}`;
-
         const optimisticMessage = {
             _id: tempId,
             senderId: authuser._id,
@@ -94,30 +85,57 @@ export const useAuthChat = create((set, get) => ({
             isOptimistic: true,
         };
 
-        // Use functional set to avoid stale state
-        set((state) => ({ messages: [...(state.messages || []), optimisticMessage] }));
+        set({ messages: [...messages, optimisticMessage] });
 
         try {
             const res = await axiosInstance.post(`/messages/send/${selecteduser._id}`, messageData);
             const realMessage = res.data.data || res.data;
-
-            // replace optimistic with real (functional update)
-            set((state) => ({
-                messages: (state.messages || []).filter((m) => m._id !== tempId).concat(realMessage),
-            }));
-
-            // emit socket newMessage so receiver gets it in real-time (optional if backend emits)
-            if (socket && socket.connected) {
-                socket.emit("newMessage", realMessage);
-            }
+            set({
+                messages: messages.filter((m) => m._id !== tempId).concat(realMessage),
+            });
         } catch (error) {
             console.error("Send message error:", error);
-            // remove optimistic
-            set((state) => ({ messages: (state.messages || []).filter((m) => m._id !== tempId) }));
+            set({ messages: messages.filter((m) => m._id !== tempId) });
             toast.error(error.response?.data?.message || "Failed to send message");
         }
     },
 
+    // ✅ Typing event
+    sendTypingStatus: (receiverId, isTyping) => {
+        const socket = userAuthStore.getState().socket;
+        if (!socket || !receiverId) return;
+
+        socket.emit(isTyping ? "typing" : "stopTyping", { receiverId });
+    },
+
+    // ✅ Delete Message
+    // ✅ Delete Message (socket-only)
+    deleteMessage: async (messageId, receiverId) => {
+        try {
+            const socket = userAuthStore.getState().socket;
+            const { messages } = get();
+
+            if (socket) {
+                socket.emit("deleteMessage", {
+                    messageId,
+                    senderId: userAuthStore.getState().authuser._id,
+                    receiverId,
+                });
+            }
+
+            // Frontend se bhi remove kar do (instant UI update)
+            set({
+                messages: messages.filter((msg) => msg._id !== messageId),
+            });
+
+            toast.success("Message deleted");
+        } catch (error) {
+            console.error("Delete message error:", error);
+            toast.error("Failed to delete message");
+        }
+    },
+
+    // ✅ Subscribe to socket events
     subscribeToMessages: () => {
         const socket = userAuthStore.getState().socket;
         const { selecteduser } = get();
@@ -125,67 +143,64 @@ export const useAuthChat = create((set, get) => ({
 
         if (!socket || !selecteduser) return;
 
-        // avoid registering multiple times: if _cleanup exists, call it first
-        if (get()._cleanup) {
-            get()._cleanup();
-        }
+        // Cleanup previous listeners
+        if (get()._cleanup) get()._cleanup();
 
-        // New message handler
+        // ✅ New message
         const handleNewMessage = (newMessage) => {
-            // only add if newMessage belongs to this open chat (A <-> B)
-            const belongsToChat =
-                (String(newMessage.senderId) === String(selecteduser._id) &&
-                    String(newMessage.receiverId) === String(authuser._id)) ||
-                (String(newMessage.senderId) === String(authuser._id) &&
-                    String(newMessage.receiverId) === String(selecteduser._id));
-
-            if (!belongsToChat) return;
-
-            set((state) => ({ messages: [...(state.messages || []), newMessage] }));
-
-            // auto-mark seen when receiver is current authuser and chat open
-            if (String(newMessage.receiverId) === String(authuser._id)) {
-                // emit markAsSeen for messages from selecteduser -> authuser
-                socket.emit("markAsSeen", {
-                    senderId: newMessage.senderId,
-                    receiverId: authuser._id,
-                });
-            }
-
-            // play notification sound for incoming messages (not for own messages)
-            if (get().isSoundEnable && String(newMessage.senderId) !== String(authuser._id)) {
+            set((state) => ({ messages: [...state.messages, newMessage] }));
+            if (get().isSoundEnable && newMessage.senderId !== authuser._id) {
                 const sound = new Audio("/sounds/notification.mp3");
-                sound.currentTime = 0;
                 sound.play().catch(() => { });
             }
         };
 
-        // Message seen handler
-        const handleMessageSeen = ({ receiverId, senderId }) => {
-            // receiverId: the one who saw messages (i.e. current receiver)
-            // senderId: the original sender whose messages were seen
+        // ✅ Seen Fix
+        const handleMessageSeen = ({ receiverId }) => {
             set((state) => ({
-                messages: (state.messages || []).map((msg) => {
-                    // mark only messages that were sent by senderId to receiverId
-                    if (
-                        String(msg.senderId) === String(senderId) &&
-                        String(msg.receiverId) === String(receiverId)
-                    ) {
-                        return { ...msg, seen: true };
-                    }
-                    return msg;
-                }),
+                messages: state.messages.map((msg) =>
+                    msg.senderId === authuser._id && msg.receiverId === receiverId
+                        ? { ...msg, seen: true }
+                        : msg
+                ),
             }));
         };
 
+        // ✅ Deleted
+        const deleteMessage = ({ messageId }) => {
+            set((state) => ({
+                messages: state.messages.filter((msg) => msg._id !== messageId),
+            }));
+        };
+
+        // ✅ Typing
+        const handleTyping = ({ senderId }) => {
+            if (senderId === selecteduser._id) {
+                set({ isTyping: true, typingUserId: senderId });
+            }
+        };
+
+        // ✅ Stop typing
+        const handleStopTyping = ({ senderId }) => {
+            if (senderId === selecteduser._id) {
+                set({ isTyping: false, typingUserId: null });
+            }
+        };
+
+        // 🧩 Register all socket events
         socket.on("newMessage", handleNewMessage);
         socket.on("messageSeen", handleMessageSeen);
+        socket.on("messageDeleted", deleteMessage);
+        socket.on("userTyping", handleTyping);
+        socket.on("userStopTyping", handleStopTyping);
 
-        // Save cleanup
+        // 🧩 Cleanup
         get()._cleanup = () => {
             socket.off("newMessage", handleNewMessage);
             socket.off("messageSeen", handleMessageSeen);
-            delete get()._cleanup;
+            socket.off("messageDeleted", deleteMessage);
+            socket.off("userTyping", handleTyping);
+            socket.off("userStopTyping", handleStopTyping);
         };
     },
 

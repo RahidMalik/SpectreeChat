@@ -9,28 +9,55 @@ function MessageInput() {
     const [text, setText] = useState("");
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
-    const { sendMessage, isSoundEnabled, selecteduser } = useAuthChat();
+    const typingTimeoutRef = useRef(null);
+
+    const { sendMessage, isSoundEnable, selecteduser, sendTypingStatus } = useAuthChat();
 
     const handleSendMessage = (e) => {
         e.preventDefault();
         if (!text.trim() && !imagePreview) return;
-        if (isSoundEnabled) playRandomKeyStrokeSound();
+
+        if (isSoundEnable) playRandomKeyStrokeSound();
 
         sendMessage({
-            text: text.trim() || "",
+            text: text.trim(),
             image: imagePreview,
-            receiverId: selecteduser?._id,
         });
+
         setText("");
         setImagePreview(null);
+        sendTypingStatus(selecteduser?._id, false);
         if (fileInputRef.current) fileInputRef.current.value = "";
+        clearTimeout(typingTimeoutRef.current);
+    };
+
+    const handleTyping = (e) => {
+        const value = e.target.value;
+        setText(value);
+
+        if (!selecteduser) return;
+
+        sendTypingStatus(selecteduser._id, value.trim().length > 0);
+
+        if (isSoundEnable) playRandomKeyStrokeSound();
+
+        clearTimeout(typingTimeoutRef.current);
+        if (value.trim().length > 0) {
+            typingTimeoutRef.current = setTimeout(() => {
+                sendTypingStatus(selecteduser._id, false);
+            }, 2000);
+        }
     };
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (!file.type.startsWith("image/")) return toast.error("Please select an image file");
-        if (file.size > 5 * 1024 * 1024) return toast.error("Image must be less than 5MB");
+        if (!file.type.startsWith("image/")) {
+            return toast.error("Please select an image file");
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            return toast.error("Image must be less than 5MB");
+        }
 
         const reader = new FileReader();
         reader.onloadend = () => setImagePreview(reader.result);
@@ -66,12 +93,10 @@ function MessageInput() {
                 <input
                     type="text"
                     value={text}
-                    onChange={(e) => {
-                        setText(e.target.value);
-                        isSoundEnabled && playRandomKeyStrokeSound();
-                    }}
-                    className="flex-1 bg-slate-800/60 border border-slate-700/50 text-white rounded-lg py-2 px-3 sm:px-4 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    onChange={handleTyping}
+                    onBlur={() => sendTypingStatus(selecteduser?._id, false)}
                     placeholder="Type a message..."
+                    className="flex-1 bg-slate-800/50 border border-slate-700/50 text-white rounded-lg py-2 px-3 sm:px-4 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
 
                 <input
@@ -85,7 +110,7 @@ function MessageInput() {
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className={`p-2 sm:px-4 rounded-lg transition-colors ${imagePreview
+                    className={`p-2 sm:px-3 sm:py-2 rounded-lg transition-colors ${imagePreview
                         ? "text-cyan-500 bg-slate-800/60"
                         : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
                         }`}
@@ -96,7 +121,7 @@ function MessageInput() {
                 <button
                     type="submit"
                     disabled={!text.trim() && !imagePreview}
-                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-3 sm:px-4 py-2 hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg p-2 sm:px-4 sm:py-2 hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <SendIcon className="w-5 h-5" />
                 </button>
