@@ -1,6 +1,8 @@
 import axios from "axios";
 
 export const axiosInstance = axios.create({
-    baseURL: "https://spectreechatbackend-1.onrender.com/api",
+    baseURL: import.meta.env.MODE === "development"
+        ? "http://localhost:5000/api"
+        : "https://spectreechatbackend-1.onrender.com/api",
     withCredentials: true,
 });
