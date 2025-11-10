@@ -3,8 +3,11 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
+// ✅ FIXED: Use your Render backend URL
 const BASE_URL =
-    import.meta.env.MODE === "development" ? "http://localhost:5000" : "/";
+    import.meta.env.MODE === "development"
+        ? "http://localhost:5000"
+        : "https://spectreechatbackend-1.onrender.com";
 
 // Load saved user from localStorage
 const storedUser = JSON.parse(localStorage.getItem("authuser"));
@@ -98,17 +101,22 @@ export const userAuthStore = create((set, get) => ({
         }
     },
 
-    //* Connect Socket (ONLY handles connection & online users here)
+    //* Connect Socket
     connectSocket: () => {
         const { authuser } = get();
         if (!authuser || get().socket?.connected) return;
 
         const socket = io(BASE_URL, {
             withCredentials: true,
+            transports: ["websocket", "polling"], // ✅ Add this too!
         });
 
         socket.on("connect", () => {
             console.log("🟢 Socket connected:", socket.id);
+        });
+
+        socket.on("connect_error", (error) => {
+            console.error("❌ Socket connection error:", error); // ✅ Add error logging
         });
 
         socket.on("getOnlineUsers", (userIds) => {
