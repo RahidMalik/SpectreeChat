@@ -1,11 +1,14 @@
-import { io } from "socket.io-client";
+// src/lib/axios.js
+import axios from "axios";
 
-const SOCKET_URL = import.meta.env.MODE === "development"
-    ? "http://localhost:5000"
-    : "https://spectreechatbackend-1.onrender.com";
+const BASE_URL =
+    import.meta.env.MODE === "development"
+        ? "http://localhost:5000"
+        : "https://spectreechatbackend-1.onrender.com";
 
-export const axiosInstance = io(SOCKET_URL, {
+export const axiosInstance = axios.create({
+    baseURL: BASE_URL + "/api",
     withCredentials: true,
-    transports: ["websocket", "polling"], // ✅ Important!
-    autoConnect: false, // Connect manually after auth
 });
+
+export default axiosInstance;
